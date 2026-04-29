@@ -1,96 +1,80 @@
 [English](README.md) | [中文](README_CN.md)
 
-# aws-samples/sample-fis-skills
+# Chaos Agent
 
-A collection of agent skills for AWS FIS (Fault Injection Service) experiment preparation, execution, and application log analysis.
+Local conversational chaos engineering agent built on top of `vercel-labs/open-agents`, focused on Kubernetes chaos workflows.
 
-## Chaos Engine Support Matrix (Chaos Agent)
+## What this project does
 
-The local Chaos Agent implementation in `agent-core/apps/web` currently supports:
+- Provides a chat-first UI to prepare and execute chaos experiments end to end.
+- Supports multiple chaos engines through a unified workflow.
+- Stores cluster configs and chat history in local PostgreSQL.
+- Uses cluster API access (`endpoint + token`) instead of local `kubectl` execution for chaos operations.
 
-- **Chaos Mesh**: API-compatible with **Chaos Mesh v2.6.x - v2.8.x** (`chaos-mesh.org/v1alpha1`, Dashboard API flow)
+## Supported chaos engines
+
+- **Chaos Mesh**: API-compatible with **Chaos Mesh v2.6.x - v2.8.x** (`chaos-mesh.org/v1alpha1`)
 - **ChaosBlade (Kubernetes)**: API-compatible with **chaosblade-operator v1.7.x - v1.8.x** (`chaosblade.io/v1alpha1`)
 
-Recommended runtime configuration for multi-engine mode:
+## Repository layout
 
-- `CHAOS_ENGINE=chaos-mesh` or `CHAOS_ENGINE=chaosblade-k8s`
-- `CHAOS_DASHBOARD_URL` for Chaos Mesh engine
-- `KUBERNETES_API_URL` for ChaosBlade engine
+- `agent-core/` — core app and agent runtime (Next.js + tools + Prisma)
+- `skills/` — chaos skills loaded by the agent
+  - `chaos-mesh-experiment-prepare`
+  - `chaos-mesh-experiment-execute`
+  - `chaosblade-experiment-prepare`
+  - `chaosblade-experiment-execute`
+- `CHAOS_MESH_AGENT_GUIDE.md` — additional setup and workflow notes
 
-## Install
+## Quick start
+
+1. Configure environment variables in `agent-core/apps/web/.env.local` (or root `.env.local`):
+   - `LLM_API_KEY`
+   - `LLM_API_URL`
+   - `LLM_MODEL`
+   - `LOCAL_DATABASE_URL`
+2. Install dependencies from workspace root:
 
 ```bash
-# Install all skills
-npx skills add aws-samples/sample-fis-skills --skill '*'
-
-# Install a specific skill
-npx skills add aws-samples/sample-fis-skills --skill aws-fis-experiment-prepare
-
-# List available skills
-npx skills add aws-samples/sample-fis-skills --list
+bun install
 ```
 
-## Available Skills
+3. Sync Prisma schema:
 
-| Skill | Description |
-|-------|-------------|
-| [aws-fis-experiment-prepare](./aws-fis-experiment-prepare/) | Generate configuration files needed to run an AWS FIS experiment (CFN template with embedded experiment template, IAM role, dashboard), then deploy via CloudFormation with self-healing iteration. Supports both Scenario Library pre-built scenarios and custom single FIS actions. For AZ Power Interruption, supports **service-scoped sub-action pruning** — only includes sub-actions for user-specified services to prevent unintended blast radius. Default experiment duration is 10 minutes. |
-| [aws-fis-experiment-execute](./aws-fis-experiment-execute/) | Run a prepared AWS FIS experiment. Extracts the template ID from the experiment directory name, queries FIS API for actions, discovers affected applications, starts the experiment with explicit user confirmation, monitors progress with real-time log insights, and generates a results report. |
-| [app-service-log-analysis](./app-service-log-analysis/) | Analyze EKS application logs during or after FIS fault injection experiments. **Multi-cluster deep dependency discovery** — automatically discovers all EKS clusters in the target region, generates isolated kubeconfig files (never overwrites `~/.kube/config`), and deep-scans all accessible clusters in parallel (env vars, ConfigMaps, Secrets, ExternalName, etc.) for applications depending on fault-injected services. Supports real-time monitoring and post-hoc analysis with comprehensive reports. |
-
-## Prerequisites
-
-Skills in this repo may depend on the following MCP servers and tools:
-
-- [**aws-knowledge-mcp-server**](https://github.com/awslabs/mcp/tree/main/src/aws-knowledge-mcp-server) -- AWS documentation search and retrieval
-- [**context7**](https://context7.com/) -- Library and framework documentation lookup with code examples
-- **AWS CLI** -- for optional live resource auditing
-- **kubectl** -- configured with access to target EKS cluster(s), required by FIS experiment execution and application log analysis skills
-
-<details>
-<summary>OpenCode MCP configuration sample (<code>config.json</code>)</summary>
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "aws-knowledge-mcp-server": {
-      "type": "local",
-      "command": ["uvx", "fastmcp", "run", "https://knowledge-mcp.global.api.aws"],
-      "enabled": true
-    },
-    "context7": {
-      "type": "remote",
-      "url": "https://mcp.context7.com/mcp",
-      "enabled": true,
-      "headers": {
-        "CONTEXT7_API_KEY": "<your-api-key>"
-      }
-    }
-  }
-}
+```bash
+cd agent-core/apps/web
+bun run prisma:generate
+bun run prisma:push
 ```
 
-</details>
+4. Start the web app:
 
-## Least Privilege Recommendations
+```bash
+cd agent-core/apps/web
+bun run dev
+```
 
-Before running FIS experiments and EKS-related skills, we recommend setting up the following permissions using the principle of least privilege.
+5. Open `http://localhost:3000`, then configure cluster entries in UI:
+   - `name`
+   - `endpoint`
+   - `token`
 
-- **CloudFormation service role** — See [aws-fis-experiment-prepare Prerequisites](./aws-fis-experiment-prepare/README.md#create-a-cloudformation-service-role) for creating a dedicated CFN service role to deploy FIS experiment stacks with least privilege.
+## Runtime configuration notes
 
-## Security
+- `CHAOS_ENGINE` can be `chaos-mesh` or `chaosblade-k8s`.
+- The active cluster `endpoint` and `token` are loaded from DB by cluster name.
+- If cluster endpoint is missing, Chaos Mesh tool calls fail fast with a clear message.
 
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
+## Current behavior guarantees
 
-## Acknowledgements
+- Single confirmation gate before execution in normal prepare/execute flow.
+- Markdown rendering in assistant text output.
+- Tool progress and execution status are shown with loading/status indicators.
+- Ambiguous target selection uses structured options including manual input.
 
-This project was inspired by and builds upon the following open-source work:
+## References
 
-- [**aws-samples/sample-aws-resilience-skill**](https://github.com/aws-samples/sample-aws-resilience-skill) -- The resilience skill sample that provided key design patterns and architectural inspiration for this project.
-- [**aws-samples/fis-template-library**](https://github.com/aws-samples/fis-template-library) -- SSM Automation documents and FIS experiment templates referenced in this project.
-
-## License
-
-This library is licensed under the MIT-0 License. See the LICENSE file.
+- Core framework: [vercel-labs/open-agents](https://github.com/vercel-labs/open-agents)
+- Chaos Mesh: [chaos-mesh/chaos-mesh](https://github.com/chaos-mesh/chaos-mesh)
+- ChaosBlade Operator: [chaosblade-io/chaosblade-operator](https://github.com/chaosblade-io/chaosblade-operator)
 

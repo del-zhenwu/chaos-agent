@@ -1,96 +1,80 @@
 [English](README.md) | [中文](README_CN.md)
 
-# aws-samples/sample-fis-skills
+# Chaos Agent
 
-一组用于 AWS FIS（故障注入服务）实验准备、执行和应用日志分析的 Agent Skills。
+一个基于 `vercel-labs/open-agents` 的本地对话式混沌工程 Agent，面向 Kubernetes 场景。
 
-## Chaos 引擎支持矩阵（Chaos Agent）
+## 项目能力
 
-`agent-core/apps/web` 下的本地 Chaos Agent 当前支持：
+- 提供聊天优先的交互体验，覆盖实验准备到执行的完整流程。
+- 通过统一工作流支持多混沌引擎。
+- 集群配置与聊天记录落库到本地 PostgreSQL。
+- 混沌执行基于集群 API 访问（`endpoint + token`），不依赖本地 `kubectl` 执行链路。
 
-- **Chaos Mesh**：兼容 **Chaos Mesh v2.6.x - v2.8.x**（`chaos-mesh.org/v1alpha1`，Dashboard API 执行流）
+## 支持的 Chaos 引擎
+
+- **Chaos Mesh**：兼容 **Chaos Mesh v2.6.x - v2.8.x**（`chaos-mesh.org/v1alpha1`）
 - **ChaosBlade（Kubernetes）**：兼容 **chaosblade-operator v1.7.x - v1.8.x**（`chaosblade.io/v1alpha1`）
 
-多引擎推荐环境变量：
+## 仓库结构
 
-- `CHAOS_ENGINE=chaos-mesh` 或 `CHAOS_ENGINE=chaosblade-k8s`
-- Chaos Mesh 引擎使用 `CHAOS_DASHBOARD_URL`
-- ChaosBlade 引擎使用 `KUBERNETES_API_URL`
+- `agent-core/`：核心应用与 Agent 运行时（Next.js + tools + Prisma）
+- `skills/`：Chaos 相关技能目录
+  - `chaos-mesh-experiment-prepare`
+  - `chaos-mesh-experiment-execute`
+  - `chaosblade-experiment-prepare`
+  - `chaosblade-experiment-execute`
+- `CHAOS_MESH_AGENT_GUIDE.md`：补充说明与实践指南
 
-## 安装
+## 快速开始
+
+1. 在 `agent-core/apps/web/.env.local`（或根目录 `.env.local`）配置：
+   - `LLM_API_KEY`
+   - `LLM_API_URL`
+   - `LLM_MODEL`
+   - `LOCAL_DATABASE_URL`
+2. 在仓库根目录安装依赖：
 
 ```bash
-# 安装所有 Skills
-npx skills add aws-samples/sample-fis-skills --skill '*'
-
-# 安装单个 Skill
-npx skills add aws-samples/sample-fis-skills --skill aws-fis-experiment-prepare
-
-# 列出可用 Skills
-npx skills add aws-samples/sample-fis-skills --list
+bun install
 ```
 
-## 可用 Skills
+3. 同步 Prisma：
 
-| Skill | 说明 |
-|-------|------|
-| [aws-fis-experiment-prepare](./aws-fis-experiment-prepare/) | 生成运行 AWS FIS 实验所需的配置文件（包含实验模板、IAM 角色、Dashboard 的 CFN 模板），然后通过 CloudFormation 自愈迭代部署。支持 Scenario Library 预置场景和自定义单个 FIS Action。AZ 电力中断场景支持**按服务范围裁剪子动作** — 仅包含用户指定服务的子动作，避免影响范围过大。默认实验持续时间 10 分钟。 |
-| [aws-fis-experiment-execute](./aws-fis-experiment-execute/) | 运行已准备好的 AWS FIS 实验。从实验目录名提取模板 ID，通过 FIS API 查询 Actions，发现受影响的应用，经用户明确确认后启动实验，实时监控进度并展示日志洞察，生成结果报告。 |
-| [app-service-log-analysis](./app-service-log-analysis/) | 在 FIS 故障注入实验期间或之后分析 EKS 应用日志。**多集群深度依赖发现** — 自动发现目标 Region 中所有 EKS 集群，为每个集群生成独立 kubeconfig 文件（绝不覆盖 `~/.kube/config`），并行深度扫描所有可访问集群（环境变量、ConfigMap、Secret、ExternalName 等）查找依赖故障注入目标服务的应用。支持实时监控和事后分析，生成综合报告。 |
-
-## 前置条件
-
-本仓库中的 Skills 可能依赖以下 MCP Server 和工具：
-
-- [**aws-knowledge-mcp-server**](https://github.com/awslabs/mcp/tree/main/src/aws-knowledge-mcp-server) — AWS 文档搜索与检索
-- [**context7**](https://context7.com/) — 库和框架文档查询，提供代码示例
-- **AWS CLI** — 用于可选的线上资源审计
-- **kubectl** — 需配置好对目标 EKS 集群的访问权限，FIS 实验执行和应用日志分析 Skills 需要
-
-<details>
-<summary>OpenCode MCP 配置示例（<code>config.json</code>）</summary>
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "aws-knowledge-mcp-server": {
-      "type": "local",
-      "command": ["uvx", "fastmcp", "run", "https://knowledge-mcp.global.api.aws"],
-      "enabled": true
-    },
-    "context7": {
-      "type": "remote",
-      "url": "https://mcp.context7.com/mcp",
-      "enabled": true,
-      "headers": {
-        "CONTEXT7_API_KEY": "<your-api-key>"
-      }
-    }
-  }
-}
+```bash
+cd agent-core/apps/web
+bun run prisma:generate
+bun run prisma:push
 ```
 
-</details>
+4. 启动 Web：
 
-## 最小权限建议
+```bash
+cd agent-core/apps/web
+bun run dev
+```
 
-在运行 FIS 实验和 EKS 相关 Skills 之前，建议按最小权限原则配置以下权限。
+5. 打开 `http://localhost:3000`，在 UI 中配置集群：
+   - `name`
+   - `endpoint`
+   - `token`
 
-- **CloudFormation 服务角色** — 参见 [aws-fis-experiment-prepare 前置条件](./aws-fis-experiment-prepare/README.md#create-a-cloudformation-service-role) 中关于创建专用 CFN 服务角色以最小权限部署 FIS 实验 Stack 的说明。
+## 运行时配置说明
 
-## 安全
+- `CHAOS_ENGINE` 可选 `chaos-mesh` / `chaosblade-k8s`。
+- 实际生效的 `endpoint` 与 `token` 按所选 `clusterName` 从数据库读取。
+- 若未配置 endpoint，Chaos Mesh 工具调用会快速失败并返回明确提示。
 
-更多信息请参见 [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications)。
+## 当前行为约束
 
-## 致谢
+- 准备/执行流程默认仅保留单次执行确认门。
+- 助手文本支持 Markdown 渲染。
+- 工具调用含进行中状态与执行状态展示。
+- 目标歧义场景使用结构化选项，并提供“手动输入”分支。
 
-本项目受到以下开源项目的启发，并在其基础上构建：
+## 参考项目
 
-- [**aws-samples/sample-aws-resilience-skill**](https://github.com/aws-samples/sample-aws-resilience-skill) -- 韧性 Skill 示例项目，为本项目提供了关键的设计模式和架构灵感。
-- [**aws-samples/fis-template-library**](https://github.com/aws-samples/fis-template-library) -- 本项目中引用的 SSM Automation 文档和 FIS 实验模板。
-
-## 许可证
-
-本项目基于 MIT-0 许可证授权。详见 LICENSE 文件。
+- 核心框架：[vercel-labs/open-agents](https://github.com/vercel-labs/open-agents)
+- Chaos Mesh：[chaos-mesh/chaos-mesh](https://github.com/chaos-mesh/chaos-mesh)
+- ChaosBlade Operator：[chaosblade-io/chaosblade-operator](https://github.com/chaosblade-io/chaosblade-operator)
 
