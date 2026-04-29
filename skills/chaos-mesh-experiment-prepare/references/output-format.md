@@ -28,3 +28,4 @@ The experiment will automatically stop after `{DURATION}`. To manually stop it e
 ```bash
 kubectl delete -f chaos-experiment.yaml
 ```
+```

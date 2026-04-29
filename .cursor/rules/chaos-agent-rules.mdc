@@ -1,0 +1,71 @@
+---
+description: Development principles, reference objects, and system availability checks for the Chaos Agent (multi-engine).
+globs: *
+---
+
+# Chaos Agent Development Rules
+
+## 1. Reference Objects (参考对象)
+
+When developing or modifying the Chaos Agent, always refer to the following:
+
+- **Core Framework**: `vercel-labs/open-agents` (https://github.com/vercel-labs/open-agents)
+  - **Why**: We use its architecture (Agent Workflow, ToolLoopAgent, Skills, Memory) as the foundation.
+  - **What we changed**: We stripped out Vercel-specific cloud dependencies (Vercel Sandbox, Postgres, KV, GitHub App auth) and replaced them with a **Local Sandbox** (Node.js `fs`/`child_process`) to run locally.
+- **Domain Platform**: `chaos-mesh/chaos-mesh` (https://github.com/chaos-mesh/chaos-mesh)
+  - **Why**: The target platform for our agent. The agent generates CRDs (Custom Resource Definitions) specific to Chaos Mesh (e.g., `PodChaos`, `NetworkChaos`, `StressChaos`).
+- **Domain Platform**: `chaosblade-io/chaosblade-operator` (https://github.com/chaosblade-io/chaosblade-operator)
+  - **Why**: The secondary chaos engine target. The agent can generate and execute ChaosBlade `ChaosBlade` CRDs for Kubernetes.
+- **Implementation Pattern**: The existing AWS FIS solution in this repository.
+  - **Why**: We mirror the structure of `aws-fis-experiment-prepare` and `aws-fis-experiment-execute` to create `chaos-mesh-experiment-prepare` and `chaos-mesh-experiment-execute` skills.
+
+## 2. Development Principles (开发原则)
+
+- **Local Execution First**: The agent MUST run locally, but cluster operations should use engine APIs (Chaos Mesh Dashboard API / Kubernetes API for ChaosBlade) with configured cluster token. Do NOT require local `kubeconfig`/`kubectl` for chaos execution.
+- **Tool-Driven Architecture**: All capabilities (reading files, executing bash, preparing chaos, executing chaos) must be implemented as discrete Tools within the `ToolLoopAgent`.
+- **Conversational Interface**: The user should be able to complete end-to-end chaos testing purely through dialogue. The UI should focus on chat plus cluster configuration (`name`, `endpoint`, `token`) for engine API access.
+- **Safety and Validation**: 
+  - Always verify API/token connectivity before executing experiments.
+  - Provide a clear `README.md` alongside generated YAML configurations.
+  - Ensure cluster tokens are handled securely and used only for intended chaos API calls.
+
+## 3. System Availability Check (系统可用性检查)
+
+**CRITICAL: Before concluding ANY conversation or development task, you MUST perform the following system availability checks to ensure the agent is running correctly.**
+
+1. **Verify Local Sandbox**: Ensure the `LocalSandbox` implementation (`agent-core/packages/sandbox/local/sandbox.ts`) is intact and correctly mapped in the factory (`agent-core/packages/sandbox/factory.ts`).
+2. **Verify LLM Configuration**: Ensure `agent-core/packages/agent/models.ts` is correctly configured to use the custom LLM provider from `.env.local` (`LLM_API_KEY`, `LLM_API_URL`, `LLM_MODEL`) using `createOpenAI` with `compatibility: "strict"`.
+3. **Verify Web App**: 
+   - Ensure the Next.js app in `agent-core/apps/web` can build (`bun run build`).
+   - Ensure the app can start successfully (`bun run dev`). **CRITICAL: Check the terminal output for port conflicts (e.g., "Port 3000 is in use") and kill zombie processes if necessary.**
+   - **CRITICAL: Verify the UI is actually accessible and returning 200 OK, not 404.** Run `curl -I http://localhost:3000/` to confirm.
+   - Verify the API route (`agent-core/apps/web/src/app/api/chat/route.ts`) correctly instantiates the `LocalSandbox` and `openAgent.stream` by sending a test message (e.g., `curl -X POST http://localhost:3000/api/chat -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "hi"}]}'`).
+4. **Verify Chaos Tools**: Ensure `chaosPrepareTool` and `chaosExecuteTool` are registered in the `openAgent`'s `tools` object (`agent-core/packages/agent/open-agent.ts`).
+
+If any of these checks fail, you MUST fix them before ending your turn.
+
+## 4. Architecture Boundaries (架构边界)
+
+- **Skill-first orchestration**: Business workflow decisions (scenario classification, target discovery strategy, confirmation gates) MUST live in skills (e.g., `chaos-mesh-experiment-prepare`, `chaosblade-experiment-prepare`), not in `apps/web/src/app/api/chat/route.ts`.
+- **No scenario hardcoding in route**: API route can do transport/auth/message normalization only. Do not encode pod-only branches, fixed scenario rules, or one-off examples in route instructions.
+- **No mock data paths**: Do not return fabricated namespaces/pods/labels/YAML/execution status. Always rely on real Chaos tools / API outputs.
+- **No local kubectl execution**: `chaos_execute` and execute workflows MUST call engine APIs (token-authenticated), not local `kubectl` commands.
+- **No prompt regex routing**: Do not rely on regex/keyword hard-match logic in application code to decide chaos scenario or target resources. Use agent tool calls and skill workflow to determine intent.
+- **Fuzzy target matching policy**: For ambiguous target keywords, use model semantic judgment + real tool evidence as the matching strategy.
+- **No regex/scoring target resolution**: Do not use regex, substring scoring, or handcrafted token rules to decide the final resource target.
+- **Resource identity clarity**: When presenting target choices, always use full resource identity from tool outputs (e.g., namespace + kind + full name).
+- **Canonical selection value**: For user options on resource selection, include a canonical machine value (e.g., `namespace/kind/name`) to avoid ambiguity in follow-up tool calls.
+
+## 5. User Decision Control (用户决策控制)
+
+- **Ambiguity requires user choice**: When multiple valid targets or interpretations exist, the agent MUST ask the user to choose instead of silently deciding.
+- **Prefer structured options**: Use `ask_user_question` with multiple-choice options as the default clarification method.
+- **Avoid free-text when avoidable**: Prefer selectable options (resources, namespaces, labels, scenario variants, durations) over open-ended fill-in prompts whenever feasible.
+- **Resource ambiguity option template**: For fuzzy target disambiguation, provide one option per discovered resource candidate plus one "Other/其它（手动输入）" option; do not use "cancel" as default fallback.
+
+## 6. Visible Progress Feedback (可见进度反馈)
+
+- **No tool-only silence**: During multi-step execution, the assistant MUST provide short natural-language progress text (current check, key finding, next step), not only raw tool traces.
+- **Human-readable waiting state**: For `ask_user_question`, UI/response should present readable question + options first; raw JSON is secondary.
+- **Verified confirmation cards**: Execution confirmation cards must show verified fields (namespace, exact target identity/selector, duration). If verification fails, do not present execute confirmation.
+- **No YAML duplication in questions**: Keep experiment YAML in dedicated preview cards/tabs; `ask_user_question` text should remain concise and must not inline full YAML.

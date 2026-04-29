@@ -34,11 +34,11 @@
    ```
 
 2. **导入 Chaos Mesh Skills**:
-   将本仓库中的 `chaos-mesh-experiment-prepare` 和 `chaos-mesh-experiment-execute` 目录复制到 `open-agents` 的 `.agents/skills/` 目录下。
+   将本仓库 `skills/` 目录中的 `chaos-mesh-experiment-prepare` 和 `chaos-mesh-experiment-execute` 复制到 `open-agents` 的 `.agents/skills/` 目录下。
 
    ```bash
-   cp -r /path/to/chaos-agent/chaos-mesh-experiment-prepare .agents/skills/
-   cp -r /path/to/chaos-agent/chaos-mesh-experiment-execute .agents/skills/
+   cp -r /path/to/chaos-agent/skills/chaos-mesh-experiment-prepare .agents/skills/
+   cp -r /path/to/chaos-agent/skills/chaos-mesh-experiment-execute .agents/skills/
    ```
 
 3. **配置 Sandbox 环境**:
