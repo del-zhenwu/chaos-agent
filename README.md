@@ -4,6 +4,10 @@
 
 Local conversational chaos engineering agent built on top of `vercel-labs/open-agents`, focused on Kubernetes chaos workflows.
 
+## UI preview
+
+![Chaos Agent chat flow](images/chaos-agent-chat-flow.png)
+
 ## What this project does
 
 - Provides a chat-first UI to prepare and execute chaos experiments end to end.

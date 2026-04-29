@@ -1,0 +1,51 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
+    "prisma:push": "prisma db push --schema prisma/schema.prisma"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "catalog:",
+    "@ai-sdk/react": "catalog:",
+    "@open-agents/agent": "workspace:*",
+    "@open-agents/sandbox": "workspace:*",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "ai": "catalog:",
+    "dotenv": "^17.4.2",
+    "lucide-react": "^0.475.0",
+    "next": "16.2.4",
+    "pg": "^8.20.0",
+    "prisma": "^7.8.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/pg": "^8.20.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.4",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "ignoreScripts": [
+    "sharp",
+    "unrs-resolver"
+  ],
+  "trustedDependencies": [
+    "sharp",
+    "unrs-resolver"
+  ]
+}

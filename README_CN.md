@@ -4,6 +4,10 @@
 
 一个基于 `vercel-labs/open-agents` 的本地对话式混沌工程 Agent，面向 Kubernetes 场景。
 
+## UI 预览
+
+![Chaos Agent 对话流程示意](images/chaos-agent-chat-flow.png)
+
 ## 项目能力
 
 - 提供聊天优先的交互体验，覆盖实验准备到执行的完整流程。

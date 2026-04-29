@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model ChatSession {
+  id        String       @id @db.Text
+  title     String       @db.Text
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  messages  ChatMessage[]
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String      @id @db.Text
+  sessionId String      @map("session_id") @db.Text
+  position  Int
+  role      String      @db.Text
+  message   Json        @db.JsonB
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, position], map: "idx_chat_messages_session_position")
+  @@map("chat_messages")
+}
+
+model ClusterConfig {
+  id        String   @id @db.Text
+  name      String   @unique @db.Text
+  endpoint  String   @default("") @db.Text
+  token     String   @default("") @db.Text
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([isDefault, updatedAt], map: "idx_cluster_configs_is_default")
+  @@map("cluster_configs")
+}

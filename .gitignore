@@ -17,6 +17,7 @@ agent-core/apps/web/20*/
 
 # Local dev/editor artifacts
 agent-core/.turbo/
+agent-core/**/.turbo/
 agent-core/.vscode/
 
 docs/
