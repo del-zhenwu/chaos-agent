@@ -1,0 +1,23 @@
+.cursor/
+.env.local
+.DS_Store
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Next.js artifacts
+**/.next/
+**/out/
+
+# Local web build/runtime artifacts
+agent-core/apps/web/.next/
+agent-core/apps/web/temp_out.txt
+agent-core/apps/web/.kubeconfig-tmp
+agent-core/apps/web/20*/
+
+# Local dev/editor artifacts
+agent-core/.turbo/
+agent-core/.vscode/
+
+docs/
