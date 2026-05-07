@@ -69,6 +69,10 @@ bun run dev
 - The active cluster `endpoint` and `token` are loaded from DB by cluster name.
 - If cluster endpoint is missing, Chaos Mesh tool calls fail fast with a clear message.
 
+## Roadmap
+
+- [ ] Support automatically checking application status (e.g., metrics, logs, health checks) before and after fault testing to provide a comprehensive resilience report.
+
 ## Current behavior guarantees
 
 - Single confirmation gate before execution in normal prepare/execute flow.
